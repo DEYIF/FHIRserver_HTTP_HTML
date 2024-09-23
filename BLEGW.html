@@ -38,64 +38,57 @@
   let intervalId; // 定时器 ID
   ///////////////for testing without BLE device
 
-  let heartRateValue; // Heart Rate from Micro:bit
+  let heartRateValue; // 假设这是从 Micro:Bit 获取的心率值
   const patientId = "{patientId}"; // 替换为实际患者 ID
 
   function handleBLENotifications(event) {
-        let result = "";
-        for (var i = 0; i < event.target.value.byteLength; i++) {
-            result += String.fromCharCode(event.target.value.getUint8(i));
-        }
+      let result = "";
+      for (var i = 0; i < event.target.value.byteLength; i++) {
+          result += String.fromCharCode(event.target.value.getUint8(i));
+      }
 
-        console.log(result);
-
-        // TODO: Show it on the screen in the yellow box.
-
-        // 将字符串修剪前后空白，并按空格分割成数组
-        let parts = result.trim().split(/\s+/);
-
-        // 获取数组的最后一个元素
-        let lastNumber = parts[parts.length - 1];
-
-        const hrValueElement = document.getElementById('HRValue');  // hrValueElement = yellow box value 
-        hrValueElement.textContent = result; // refresh the hrValue
-        heartRateValue = parseInt(result); // refresh
-  }
-
-  function createObservation(heartRateValue) {
-      const observation = {
-          resourceType: "Observation",
-          status: "final",
-          code: {
-              coding: [{
-                  system: "http://loinc.org",
-                  code: "8867-4",
-                  display: "Heart Rate"
-              }]
-          },
-          subject: {
-              reference: `Patient/${patientId}` // 替换为实际患者 ID
-          },
-          effectiveDateTime: new Date().toISOString(),
-          valueQuantity: {
-              value: heartRateValue,
-              unit: "beats/minute",
-              system: "http://unitsofmeasure.org"
-          }
-      };
-
-      client.create({ resource: observation }).then(response => {
-          console.log("Observation sent:", response);
-      }).catch(error => {
-          console.error("Error sending observation:", error);
-      });
+      console.log(result);
+      // From the Micro:bit we obtain 3 different values: only keep BPM value
+      let individual_value = result.trim().split(/\s+/); // Separate the 3 different values
+      let BPM_Value = individual_value[individual_value.length - 1]; // Keep the BPM
+      // Show it on the screen in the yellow box
+      const hrValueElement = document.getElementById('HRValue'); 
+      hrValueElement.textContent = parseInt(BPM_Value); 
   }
 
   function sendHRValue() {  //click the send
       console.log("Send HR Value");
       
       // TODO: Send the data to FHIR
-      createObservation(heartRateValue); // 调用创建 Observation 函数
+      const observation = {
+          resourceType: "Observation",
+          status: "final",
+          code: {
+              coding: [{
+                  system: "http://loinc.org",
+                  code: "8867-4", // LOINC 代码表示心率
+                  display: "Heart Rate"
+              }]
+          },
+          subject: {
+              reference: `Patient/${patientId}` // 替换为实际患者 ID
+          },
+          effectiveDateTime: new Date().toISOString(), // 当前时间
+          valueQuantity: {
+              value: heartRateValue, // 心率值
+              unit: "beats/minute", // 单位
+              system: "http://unitsofmeasure.org" // 单位系统
+          }
+      };
+
+      // 发送观察资源到 FHIR 服务器
+      client.create({
+          resource: observation
+      }).then(response => {
+          console.log("Observation sent:", response);
+      }).catch(error => {
+          console.error("Error sending observation:", error);
+      });
   }
 
   // 每分钟发送一次心率数据
@@ -181,7 +174,7 @@
               hrValueElement.textContent = simulatedHRValues[currentIndex]; // 显示当前心率值
               currentIndex++; // 更新索引
           } else {
-              clearInterval(intervalId); // 停止timer
+              clearInterval(intervalId); // 停止定时器
           }
       }, 500); // 500 毫秒对应 2 Hz
   });
