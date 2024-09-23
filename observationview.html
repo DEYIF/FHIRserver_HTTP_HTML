@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <title>Give Care FHIR Observation View</title>
+  <link rel="stylesheet" href="givecare.css"/>
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="jqFhir.js"></script>
+</head>
+
+<body>
+  <h1 class="givecare_title">Give Care</h1>
+
+  <h1>Observation View</h1>
+  <div class="boxed_info">
+    <p class="boxed_text">Personal Information</p>
+    <div class="stack_h">
+      <div class="form_info">Prefix<br><input id="name_prefix" type="text" disabled size=5></div>
+      <div class="form_info">Given Name(s)<br><input id="name_given" type="text" disabled size=25></div>
+      <div class="form_info">Family Name<br><input id="name_family" type="text" disabled size=25></div>
+      <div class="form_info">Sex<br><input id="sex" type="text" disabled size=6></div>
+    </div>
+    <div class="stack_h">
+      <div class="form_info">Birthdate<br><input id="birthdate" type="text" disabled size=10></div>
+      <div class="form_info">&nbsp;<br><a id="patlink" href="patientview.html">Patient overview</a></div>
+    </div>
+  </div>
+
+  <div class="boxed_info">
+    <p class="boxed_text">Observation</p>
+    <div class="stack_h">
+      <div class="form_info">Code<br><input id="code" type="text" disabled size=30></div>
+      <div class="form_info">Method<br><input id="method" type="text" disabled size=50></div>
+    </div>
+    <div class="stack_h">
+      <div class="form_info">Instant<br><input id="effectiveInstant" type="text" disabled size=30></div>
+      <div class="form_info">Value<br><input id="value" type="text" disabled size=25></div>
+      <div class="form_info">Unit<br><input id="unit" type="text" disabled size=10></div>
+    </div>
+  </div>
+
+  <div class="boxed_info">
+    <p class="boxed_text">Add new observation</p>
+    <div class="stack_h">
+      <div class="form_info">Instant<br><input id="new_effectiveInstant" type="text" size=30></div>
+      <div class="form_info">Value<br><input id="new_value" type="text" size=25></div>
+    </div>
+    <input type="button" value="New" style="margin: 5pt;" onclick="addObservation()">
+  </div>
+
+  <script>
+
+    // Set up a client and patient ID to talk to an un-authenticated FHIR server
+    //var client = jqFhir({ baseUrl: 'http://localhost:8080/fhir' });
+    var client = jqFhir({ baseUrl: 'https://hapi.prod.cloud.cbh.kth.se/fhir' });
+    var obs = null;
+
+    let searchParams = new URLSearchParams(window.location.search)
+    searchParams.has('id')
+    var obsId = searchParams.get('id')
+
+    var addObservation = function () {
+      console.log("ADD");
+
+      delete obs.id;
+      obs.effectiveInstant = $("#new_effectiveInstant").val();
+      obs.valueQuantity.value = $("#new_value").val();
+
+      console.log(obs);
+      client.create({ "entry": {"content": obs}}).then(() => {
+        console.log("ADDED");
+      }).catch(error => {
+        console.log("FAILED");
+      });
+    };
+
+    client.read({
+      id: 'Observation/' + obsId
+    }).then(function(p) {
+      obs = p.content;
+      console.log("GOT OBSERVATION");
+      console.log(obs);
+      $("#code").val(obs.code.coding[0].display);
+      $("#method").val(obs.method.coding[0].display);
+      $("#effectiveInstant").val(obs.effectiveDateTime);
+      $("#effectiveInstant").val(obs.effectiveInstant);
+      $("#new_effectiveInstant").val(obs.effectiveDateTime);
+      $("#new_effectiveInstant").val(obs.effectiveInstant);
+      $("#value").val(obs.valueQuantity.value);
+      $("#new_value").val(obs.valueQuantity.value);
+      $("#unit").val(obs.valueQuantity.unit);
+
+      client.read({
+        id: obs.subject.reference
+      }).then(function(p) {
+        console.log("GOT PATIENT");
+        console.log(p);
+        var name = p.content.name[0];
+        $("#name_prefix").val(name.prefix.join(" "));
+        $("#name_given").val(name.given.join(" "))
+        $("#name_family").val(name.family);
+        $("#sex").val(p.content.gender);
+        $("#birthdate").val(p.content.birthDate);
+        $("#patlink").attr("href", "patientview.html?id=" + p.content.id);
+      });
+    });
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>HR WebBLE Gateway</title>
+</head>
+<body>
+
+<div id="HRValue" style="background-color: yellow; padding: 10pt; width: 30pt;">0</div> BPM
+
+<p>
+<button id="startBtn">Start sensor</button>
+<button id="stopBtn">Stop sensor</button>
+<button id="sendBtn">Send HR Value</button>
+
+<!--for testing without BLE device-->
+<button id="testBtn">Test Bluetooth Notification</button> 
+<!--for testing without BLE device-->
+
+</p>
+
+<!--JavaScript part-->
+<script>
+
+  const val = document.getElementById('HRValue');
+  let targetDevice;
+  let serviceUART;
+  let charUARTRX;
+
+  const BLE_UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+  const BLE_UART_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+  console.log("init");
+
+  ///////////////for testing without BLE device
+  let currentIndex = 0; // 当前显示的心率值索引
+  let simulatedHRValues = []; // 存储模拟的心率值
+  let intervalId; // 定时器 ID
+  ///////////////for testing without BLE device
+
+  let heartRateValue; // Heart Rate from Micro:bit
+  const patientId = "{patientId}"; // 替换为实际患者 ID
+
+  function handleBLENotifications(event) {
+        let result = "";
+        for (var i = 0; i < event.target.value.byteLength; i++) {
+            result += String.fromCharCode(event.target.value.getUint8(i));
+        }
+
+        console.log(result);
+
+        // TODO: Show it on the screen in the yellow box.
+
+        // 将字符串修剪前后空白，并按空格分割成数组
+        let parts = result.trim().split(/\s+/);
+
+        // 获取数组的最后一个元素
+        let lastNumber = parts[parts.length - 1];
+
+        const hrValueElement = document.getElementById('HRValue');  // hrValueElement = yellow box value 
+        hrValueElement.textContent = result; // refresh the hrValue
+        heartRateValue = parseInt(result); // refresh
+  }
+
+  function createObservation(heartRateValue) {
+      const observation = {
+          resourceType: "Observation",
+          status: "final",
+          code: {
+              coding: [{
+                  system: "http://loinc.org",
+                  code: "8867-4",
+                  display: "Heart Rate"
+              }]
+          },
+          subject: {
+              reference: `Patient/${patientId}` // 替换为实际患者 ID
+          },
+          effectiveDateTime: new Date().toISOString(),
+          valueQuantity: {
+              value: heartRateValue,
+              unit: "beats/minute",
+              system: "http://unitsofmeasure.org"
+          }
+      };
+
+      client.create({ resource: observation }).then(response => {
+          console.log("Observation sent:", response);
+      }).catch(error => {
+          console.error("Error sending observation:", error);
+      });
+  }
+
+  function sendHRValue() {  //click the send
+      console.log("Send HR Value");
+      
+      // TODO: Send the data to FHIR
+      createObservation(heartRateValue); // 调用创建 Observation 函数
+  }
+
+  // 每分钟发送一次心率数据
+  //setInterval(sendHRValue, 60 * 1000); // 60 秒的毫秒数
+
+  function startBluetooth() {
+      console.log('Requesting Bluetooth Device...');
+      navigator.bluetooth.requestDevice({
+          filters: [
+              { services: [BLE_UART_SERVICE] },
+              { namePrefix: 'BBC micro:bit ' }
+          ]
+      })
+      .then(device => {
+          console.log('Connecting to GATT Server...');
+          targetDevice = device;
+          return device.gatt.connect();
+      })
+      .then(server => {
+          console.log('Getting Service...');
+          return server.getPrimaryService(BLE_UART_SERVICE);
+      })
+      .then(service => {
+          console.log('Got service');
+          serviceUART = service;
+          return service.getCharacteristic(BLE_UART_RX_CHAR);
+      })
+      .then(characteristic => {
+          console.log('Got char');
+          charUARTRX = characteristic;
+          return charUARTRX.startNotifications();
+      })
+      .then(_ => {
+          console.log('Notifications started');
+          charUARTRX.addEventListener('characteristicvaluechanged', handleBLENotifications);
+      })
+      .catch(error => {
+          console.error(error);
+      });
+  }
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+      startBluetooth();
+  });
+
+  document.getElementById('stopBtn').addEventListener('click', () => {
+      if (serviceUART == null) {
+          return;
+      }
+
+      charUARTRX.stopNotifications()
+      .then(_ => {
+          console.log('Notifications stopped');
+          charUARTRX.removeEventListener('characteristicvaluechanged', handleBLENotifications);
+          serviceUART = null;
+          targetDevice.gatt.disconnect();
+      })
+      .catch(error => {
+          console.log('Argh! ' + error);
+      });
+  });
+
+  // send Button
+  document.getElementById("sendBtn").addEventListener("click", function() {
+      sendHRValue(); // 发送最新心率值
+  });
+
+  document.getElementById('testBtn').addEventListener('click', () => {
+      // 生成一个包含 120 个随机数字（模拟心率）的数组
+      simulatedHRValues = new Uint8Array(120);
+      for (let i = 0; i < simulatedHRValues.length; i++) {
+          simulatedHRValues[i] = Math.floor(Math.random() * 100) + 60; // 随机心率值范围 60-159
+      }
+
+      // 重置索引
+      currentIndex = 0;
+
+      // 设置定时器，每 500 毫秒（2 Hz）更新一次
+      clearInterval(intervalId); // 清除之前的定时器（如果存在）
+      intervalId = setInterval(() => {
+          if (currentIndex < simulatedHRValues.length) {
+              const hrValueElement = document.getElementById('HRValue');
+              hrValueElement.textContent = simulatedHRValues[currentIndex]; // 显示当前心率值
+              currentIndex++; // 更新索引
+          } else {
+              clearInterval(intervalId); // 停止timer
+          }
+      }, 500); // 500 毫秒对应 2 Hz
+  });
+
+</script>
+</body>
+</html>

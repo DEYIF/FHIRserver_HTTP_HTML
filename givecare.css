@@ -1,0 +1,36 @@
+.givecare_title {
+  text-align: center;
+  color: red;
+}
+
+body {
+  background-color: #9999ff;
+}
+
+.boxed_info {
+  border-width: medium;
+  border-style: double;
+  margin: 10pt;
+  padding: 10pt;
+}
+
+.boxed_text {
+  align: right;
+  margin: 0pt;
+  width: 100%;
+}
+.stack_h {
+  display: flex;
+  width: 100%;
+}
+
+.form_info {
+  float:left;
+  margin: 5pt;
+}
+
+#address_list, #telecom_list {
+  width: 250pt;
+  list-style-type: none;
+  background-color: #ccccff;
+}

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <title>Give Care FHIR Patient View</title>
+  <link rel="stylesheet" href="givecare.css"/>
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="jqFhir.js"></script>
+</head>
+
+<body>
+  <h1 class="givecare_title">Give Care</h1>
+
+  <h1>Patient View</h1>
+  <div class="boxed_info">
+    <p class="boxed_text">Personal Information<span id="last_updated" style="float:right;">XXX</span></p>
+    <div class="stack_h">
+      <div class="form_info">Prefix<br><input id="name_prefix" type="text" disabled size=5></div>
+      <div class="form_info">Given Name(s)<br><input id="name_given" type="text" disabled size=25></div>
+      <div class="form_info">Family Name<br><input id="name_family" type="text" disabled size=25></div>
+      <div class="form_info">Sex<br><input id="sex" type="text" disabled size=6></div>
+    </div>
+    <div class="stack_h">
+      <div class="form_info">Birthdate<br><input id="birthdate" type="text" disabled size=10></div>
+    </div>
+  </div>
+
+  <div class="boxed_info">
+    <p class="boxed_text">Contact Information</p>
+    <div class="stack_h">
+      <div class="form_info"><ul id="address_list"></ul></div>
+      <div class="form_info"><ul id="telecom_list"></ul></div>
+    </div>
+  </div>
+
+  <div class="boxed_info">
+    <p class="boxed_text">Active medication prescriptions</p>
+    <ul id="med_list"></ul>
+  </div>
+
+  <div class="boxed_info">
+    <p class="boxed_text">Recent observations</p>
+    <ul id="observation_list"></ul>
+  </div>
+
+  <script>
+
+    // Set up a client and patient ID to talk to an un-authenticated FHIR server
+    //var client = jqFhir({ baseUrl: 'http://localhost:8080/fhir' });
+    var client = jqFhir({ baseUrl: 'https://hapi.prod.cloud.cbh.kth.se/fhir' });
+
+    let searchParams = new URLSearchParams(window.location.search)
+    searchParams.has('id')
+    var patientId = searchParams.get('id')
+
+    var getMedName = function(medID) {
+      client.read({
+        id: medID
+      }).then(function(p) {
+        //console.log(p);
+        var formatted = p.content.text.div;
+        var row = $("<li> " + formatted + "</li>");
+        $("#med_list").append(row);
+      });
+    };
+
+    client.read({
+      id: 'Patient/' + patientId
+    }).then(function(p) {
+      console.log("GOT PATIENT");
+      console.log(p);
+      var name = p.content.name[0];
+      $("#name_prefix").val(name.prefix.join(" "));
+      $("#name_given").val(name.given.join(" "))
+      $("#name_family").val(name.family);
+      $("#sex").val(p.content.gender);
+      $("#birthdate").val(p.content.birthDate);
+      $("#last_updated").text(p.content.meta.lastUpdated);
+
+      p.content.address.forEach(addr => {
+        //console.log(addr);
+        var formatted = addr.city + ", " + addr.country;
+        var row = $("<li> " + formatted + "</li>");
+        $("#address_list").append(row);
+      });
+
+      p.content.telecom.forEach(tel => {
+        //console.log(tel);
+        var formatted = tel.system + ", " + tel.value;
+        if (tel.use)
+          formatted += " " + tel.use;
+        var row = $("<li> " + formatted + "</li>");
+        $("#telecom_list").append(row);
+      });
+    });
+
+    client.search({
+      type: 'MedicationRequest',
+      query: {
+        _count: 5,
+        patient: {
+          $type: 'Patient',
+          _id: patientId
+        }
+      }}).then(res => {
+        //console.log(res);
+        const b = res.entry;
+        //prescriptions.forEach(function(rx) {
+        b.forEach(rx => {
+          //console.log(rx);
+          var med = rx.resource.medicationReference;
+          getMedName(med.reference);
+      });
+    });
+
+    client.search({
+      type: 'Observation',
+      query: {
+        _count: 20,
+        patient: {
+          $type: 'Patient',
+          _id: patientId
+        }
+      }}).then(res => {
+        console.log(res);
+        res.entry.forEach(obs => {
+          var r = obs.resource;
+          console.log(obs);
+          var row = "<li><a href='observationview.html?id=" + r.id + "'>" + r.effectiveInstant + " " + r.code.coding[0].display + "</a></li>";
+          $("#observation_list").append(row);
+      });
+    });
+  </script>
+</body>
+</html>
