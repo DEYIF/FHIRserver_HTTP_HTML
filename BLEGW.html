@@ -9,6 +9,7 @@
 <div id="HRValue" style="background-color: yellow; padding: 10pt; width: 30pt;">0</div> BPM
 
 <p>
+      
 <button id="startBtn">Start sensor</button>
 <button id="stopBtn">Stop sensor</button>
 <button id="sendBtn">Send HR Value</button>
@@ -48,18 +49,16 @@
         }
 
         console.log(result);
+        
 
         // TODO: Show it on the screen in the yellow box.
 
-        // 将字符串修剪前后空白，并按空格分割成数组
-        let parts = result.trim().split(/\s+/);
-
-        // 获取数组的最后一个元素
-        let lastNumber = parts[parts.length - 1];
-
-        const hrValueElement = document.getElementById('HRValue');  // hrValueElement = yellow box value 
-        hrValueElement.textContent = result; // refresh the hrValue
-        heartRateValue = parseInt(result); // refresh
+        // From the Micro:bit we obtain 3 different values: only keep BPM value
+        let individual_value = result.trim().split(/\s+/); // Separate the 3 different values
+        let BPM_Value = individual_value[individual_value.length - 1]; // Keep the BPM
+        // Show it on the screen in the yellow box
+        const hrValueElement = document.getElementById('HRValue'); 
+        hrValueElement.textContent = parseInt(BPM_Value); 
   }
 
   function createObservation(heartRateValue) {
@@ -74,7 +73,7 @@
               }]
           },
           subject: {
-              reference: `Patient/${patientId}` // 替换为实际患者 ID
+              reference: `Patient/${140}` // replace
           },
           effectiveDateTime: new Date().toISOString(),
           valueQuantity: {
