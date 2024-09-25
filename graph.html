@@ -30,7 +30,8 @@
         y: [], // BPM on y-axis
         type: 'scatter',
         mode: 'lines+markers',
-        name: 'Heart Rate (BPM)'
+        name: 'Heart Rate (BPM)',
+        connectgaps: false
        }
       ];
 
@@ -64,9 +65,12 @@
        const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
       const patientId = "1123"; // Add patient ID
       
+      //let last_time = null; // Variable to track last time added
+
       async function fetchHeartRateData() {
+        console.log("Fetching heart rate data...");
         try {
-          const response = await fetch(`${fhirEndpoint}?patient=${patientId}&_count=20`, {
+          const response = await fetch(`${fhirEndpoint}?patient=${patientId}&_count=20000000`, {
             headers: {
               "Accept": "application/fhir+json"
             }
@@ -75,32 +79,44 @@
           if (response.ok) {
             const fhirData = await response.json();
             const observations = fhirData.entry || [];
+            const heartRateData = [];
 
-            observations.forEach((entry) => {
+           // 提取心率数据并存储在数组中
+           observations.forEach((entry) => {
               const observation = entry.resource;
               const BPM_value = observation.valueQuantity.value;  // Extract heart rate value
-              const current_time = observation.effectiveInstant;    // Extract time of observation
-              
-              if(BPM_value !== undefined && current_time !== undefined) {
-                console.log("Heart Rate (BPM):", BPM_value, "at", current_time);
+              const current_time = new Date(observation.effectiveInstant).getTime(); // 获取时间戳
+
+              if (BPM_value !== undefined && current_time !== undefined) {
+                heartRateData.push({ time: current_time, bpm: BPM_value }); // 将数据添加到数组中
+                console.log("Heart Rate (BPM):", BPM_value, "at", new Date(current_time).toLocaleString());
               }
-              
+            });
+
+            // 根据时间戳排序
+            heartRateData.sort((a, b) => a.time - b.time);
+
+            // 更新图表数据
+            heartRateData.forEach(dataPoint => {
+              const timeFormatted = new Date(dataPoint.time).toLocaleString(); // 格式化时间
+
 
               // Update the heart rate graph with new data
               Plotly.extendTraces(plotly_elem, {
-                  x: [[current_time]],
-                  y: [[BPM_value]]
+                  x: [[timeFormatted]],
+                  y: [[dataPoint.bpm]]
               }, [0]);
 
               // Update the number+delta indicator
               Plotly.update(indicator_elem, {
-                  value: [BPM_value],
+                  value: [dataPoint.bpm],
                   'delta.reference': [previous_value]
               }, [0]);
 
               // Update previous value
-              previous_value = BPM_value;
+              previous_value = dataPoint.bpm;
             });
+
           } else {
             console.error("Error retrieving data from FHIR:", response.statusText);
           }
@@ -108,9 +124,11 @@
           console.error("Error:", error);
         }
       }
-      // Call the function to fetch and update data
-      //fetchHeartRateData();
-      setInterval(fetchHeartRateData, 1000);
+
+      // 定期获取数据
+      setInterval(fetchHeartRateData, 10000);
+      fetchHeartRateData();
+
 
     </script>
 </body>
