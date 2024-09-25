@@ -96,16 +96,17 @@
         // send per 60 seconds
         setInterval(() => {
             if (latestBPMValue !== undefined) { // check if the latest BPM value is available
-                sendObservation(latestBPMValue); // send the observation to the FHIR server
+                const currentTime = new Date().toISOString(); // 获取当前时间并格式化为 ISO 字符串
+                sendObservation(latestBPMValue,currentTime); // send the observation to the FHIR server
             }
-        }, 60000); // 10000 ms = 10 sec
+        }, 10000); // 10000 ms = 10 sec
     })
       .catch(error => {
           console.error(error);
       });
   }
 
-  async function sendObservation(hrvalue) {    //send the observation to the FHIR server
+  async function sendObservation(hrvalue,time) {    //send the observation to the FHIR server
             const url = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
 
             // request body
@@ -127,9 +128,9 @@
                     "text": "Heart rate"
                 },
                 "subject": {
-                    "reference": "Patient/229"
+                    "reference": "Patient/1123"
                 },
-                "effectiveInstant": "2024-09-25T00:00:00Z",
+                "effectiveInstant": time,
                 "valueQuantity": {
                     "value": hrvalue,
                     "unit": "beats/minute",

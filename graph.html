@@ -12,7 +12,7 @@
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="jqFhir.js"></script>
-    
+
     <script type="module">
 
       // Create plot (graph element)
@@ -29,7 +29,7 @@
        { x: [], // Time on x-axis
         y: [], // BPM on y-axis
         type: 'scatter',
-        mode: 'line+markers',
+        mode: 'lines+markers',
         name: 'Heart Rate (BPM)'
        }
       ];
@@ -62,7 +62,7 @@
       
        // Obtain information from FHIR database            
        const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
-      const patientId = "229"; // Add patient ID
+      const patientId = "1123"; // Add patient ID
       
       async function fetchHeartRateData() {
         try {
@@ -81,7 +81,10 @@
               const BPM_value = observation.valueQuantity.value;  // Extract heart rate value
               const current_time = observation.effectiveInstant;    // Extract time of observation
               
-              console.log("Heart Rate (BPM):", BPM_value, "at", current_time);
+              if(BPM_value !== undefined && current_time !== undefined) {
+                console.log("Heart Rate (BPM):", BPM_value, "at", current_time);
+              }
+              
 
               // Update the heart rate graph with new data
               Plotly.extendTraces(plotly_elem, {
@@ -106,8 +109,8 @@
         }
       }
       // Call the function to fetch and update data
-      // fetchHeartRateData();
-      setInterval(fetchHeartRateData, 10000);
+      //fetchHeartRateData();
+      setInterval(fetchHeartRateData, 1000);
 
     </script>
 </body>
