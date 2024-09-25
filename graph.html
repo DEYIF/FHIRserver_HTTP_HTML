@@ -55,7 +55,48 @@
       // Initialize indicator
       Plotly.newPlot(indicator_elem, indicator_data, indicator_layout);
       
-      /*  
+      // Obtain information from FHIR database            
+      // const patientId = 229; // Add patient ID
+      client.search({
+        type: 'Observation',
+        query: {
+          _count: 20,
+          patient: {
+            $type: 'Patient',
+            //_id: patientId
+            _id: '229'
+          }
+        }}).then(res => {
+          console.log(res);
+          res.entry.forEach(obs => {
+            var r = obs.resource;
+            console.log(obs);
+            var row = "<li><a href='observationview.html?id=" + r.id + "'>" + r.effectiveInstant + " " + r.code.coding[0].display + "</a></li>";
+            $("#observation_list").append(row);
+            var BPM_value = obs.valueQuantity.value
+            var current_time = obs.effectiveInstant
+        });
+      });      
+      
+      // Update values in plot - graph
+      Plotly.extendTraces(plotly_elem, {
+          x: [[current_time]],  // Time on x-axis
+          y: [[BPM_Value]]     // BPM on y-axis
+        }, [0]);
+      
+      // Update values in indicator
+      Plotly.update(indicator_elem, {
+          value: [BPM_value],  // Update the current value
+          'delta.reference': [previous_value]  // Update the delta with previous value
+      }, [0]);
+      previous_value = BPM_value; // Update the previous value      
+      
+      
+      
+      
+      /* 
+
+      // MORE OPTIONS: 
       // OPTION A
 
       // Export data from FHIR. (Function provided + our modifications)
@@ -89,8 +130,6 @@
 
       // Call function
       getMyHRData();
-
-      */
 
       // OPTION B:
 
@@ -140,9 +179,9 @@
 
       // Call the function
       getMyHRDataFromFHIR();
-   
-
-      /* DATA RETRIEVED FROM Micro:bit
+      
+      // OPTION C: 
+      // DATA RETRIEVED FROM Micro:bit
     
       // Connect to Bluetooth
       // WRITE 
