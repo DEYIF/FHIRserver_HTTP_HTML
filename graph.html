@@ -65,7 +65,7 @@
       const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation"; // URL to FHIR service
       const patientId = "1123"; // Add patient ID
       
-      //let last_time = null; // Variable to track last time added
+      let last_time = null;  // Variable to track last time added
 
       async function fetchHeartRateData() {
         console.log("Fetching heart rate data...");
@@ -100,6 +100,13 @@
             heartRateData.forEach(dataPoint => {
               const timeFormatted = new Date(dataPoint.time).toLocaleString(); // 格式化时间
 
+               // Add null to break the connection if the current time is before the last time
+               if (last_time && dataPoint.time < last_time) {
+                Plotly.extendTraces(plotly_elem, {
+                  x: [[null]], // Add a null point in x
+                  y: [[null]]  // Add a null point in y to break the line
+                }, [0]);
+              }
 
               // Update the heart rate graph with new data
               Plotly.extendTraces(plotly_elem, {
@@ -112,9 +119,10 @@
                   value: [dataPoint.bpm],
                   'delta.reference': [previous_value]
               }, [0]);
-
-              // Update previous value
+              // Update previous value and last time
               previous_value = dataPoint.bpm;
+              last_time = dataPoint.time;
+
             });
           } else { // Other codes to avoid errors and breaking the programme
             console.error("Error retrieving data from FHIR:", response.statusText);

@@ -96,7 +96,7 @@
         // send per 60 seconds
         setInterval(() => {
             if (latestBPMValue !== undefined) { // check if the latest BPM value is available
-                const currentTime = new Date().toLocaleString('sv-SE'); // 采用瑞典的本地格式
+                const currentTime = new Date().toISOString(); //  UTC format time
                 sendObservation(latestBPMValue,currentTime); // send the observation to the FHIR server
             }
         }, 60000); // 10000 ms = 10 sec
