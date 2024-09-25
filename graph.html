@@ -10,6 +10,9 @@
     <div id="indicator_area" style="width:1000px;height:350px;"></div>
 
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="jqFhir.js"></script>
+    
     <script type="module">
 
       // Create plot (graph element)
@@ -30,7 +33,9 @@
         name: 'Heart Rate (BPM)'
        }
       ];
-      
+
+       var client = jqFhir({ baseUrl: 'https://hapim.app.cloud.cbh.kth.se/fhir' });
+
       // Initialize plot (graph element)
       Plotly.newPlot(plotly_elem, plotly_data, plotly_layout);
        
@@ -55,41 +60,54 @@
       // Initialize indicator
       Plotly.newPlot(indicator_elem, indicator_data, indicator_layout);
       
-      // Obtain information from FHIR database            
-      // const patientId = 229; // Add patient ID
-      client.search({
-        type: 'Observation',
-        query: {
-          _count: 20,
-          patient: {
-            $type: 'Patient',
-            //_id: patientId
-            _id: '229'
+       // Obtain information from FHIR database            
+       const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
+      const patientId = "229"; // Add patient ID
+      
+      async function fetchHeartRateData() {
+        try {
+          const response = await fetch(`${fhirEndpoint}?patient=${patientId}&_count=20`, {
+            headers: {
+              "Accept": "application/fhir+json"
+            }
+          });
+          
+          if (response.ok) {
+            const fhirData = await response.json();
+            const observations = fhirData.entry || [];
+
+            observations.forEach((entry) => {
+              const observation = entry.resource;
+              const BPM_value = observation.valueQuantity.value;  // Extract heart rate value
+              const current_time = observation.effectiveInstant;    // Extract time of observation
+              
+              console.log("Heart Rate (BPM):", BPM_value, "at", current_time);
+
+              // Update the heart rate graph with new data
+              Plotly.extendTraces(plotly_elem, {
+                  x: [[current_time]],
+                  y: [[BPM_value]]
+              }, [0]);
+
+              // Update the number+delta indicator
+              Plotly.update(indicator_elem, {
+                  value: [BPM_value],
+                  'delta.reference': [previous_value]
+              }, [0]);
+
+              // Update previous value
+              previous_value = BPM_value;
+            });
+          } else {
+            console.error("Error retrieving data from FHIR:", response.statusText);
           }
-        }}).then(res => {
-          console.log(res);
-          res.entry.forEach(obs => {
-            var r = obs.resource;
-            console.log(obs);
-            var row = "<li><a href='observationview.html?id=" + r.id + "'>" + r.effectiveInstant + " " + r.code.coding[0].display + "</a></li>";
-            $("#observation_list").append(row);
-            var BPM_value = obs.valueQuantity.value
-            var current_time = obs.effectiveInstant
-        });
-      });      
-      
-      // Update values in plot - graph
-      Plotly.extendTraces(plotly_elem, {
-          x: [[current_time]],  // Time on x-axis
-          y: [[BPM_Value]]     // BPM on y-axis
-        }, [0]);
-      
-      // Update values in indicator
-      Plotly.update(indicator_elem, {
-          value: [BPM_value],  // Update the current value
-          'delta.reference': [previous_value]  // Update the delta with previous value
-      }, [0]);
-      previous_value = BPM_value; // Update the previous value      
+        } catch (error) {
+          console.error("Error:", error);
+        }
+      }
+
+      // Call the function to fetch and update data
+      fetchHeartRateData();
       
       
       
