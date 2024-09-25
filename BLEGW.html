@@ -41,8 +41,7 @@
   let intervalId; // 定时器 ID
   ///////////////for testing without BLE device
 
-  let heartRateValue; // 假设这是从 Micro:Bit 获取的心率值
-  const patientId = "{patientId}"; // 替换为实际患者 ID
+  let latestBPMValue; // the latest BPM value
 
   function handleBLENotifications(event) {
       let result = "";
@@ -53,49 +52,11 @@
       console.log(result);
       // From the Micro:bit we obtain 3 different values: only keep BPM value
       let individual_value = result.trim().split(/\s+/); // Separate the 3 different values
-      let BPM_Value = individual_value[individual_value.length - 1]; // Keep the BPM
+      latestBPMValue = individual_value[individual_value.length - 1]; // Keep the BPM
       // Show it on the screen in the yellow box
       const hrValueElement = document.getElementById('HRValue'); 
-      hrValueElement.textContent = parseInt(BPM_Value); 
+      hrValueElement.textContent = parseInt(latestBPMValue); 
   }
-
-  function sendHRValue() {  //click the send
-      console.log("Send HR Value");
-      
-      // TODO: Send the data to FHIR
-      const observation = {
-          resourceType: "Observation",
-          status: "final",
-          code: {
-              coding: [{
-                  system: "http://loinc.org",
-                  code: "8867-4", // LOINC 代码表示心率
-                  display: "Heart Rate"
-              }]
-          },
-          subject: {
-              reference: `Patient/${140}` // replace
-          },
-          effectiveDateTime: new Date().toISOString(), // 当前时间
-          valueQuantity: {
-              value: heartRateValue, // 心率值
-              unit: "beats/minute", // 单位
-              system: "http://unitsofmeasure.org" // 单位系统
-          }
-      };
-
-      // 发送观察资源到 FHIR 服务器
-      client.create({
-          resource: observation
-      }).then(response => {
-          console.log("Observation sent:", response);
-      }).catch(error => {
-          console.error("Error sending observation:", error);
-      });
-  }
-
-  // 每分钟发送一次心率数据
-  //setInterval(sendHRValue, 60 * 1000); // 60 秒的毫秒数
 
   function startBluetooth() {
       console.log('Requesting Bluetooth Device...');
@@ -128,12 +89,23 @@
           console.log('Notifications started');
           charUARTRX.addEventListener('characteristicvaluechanged', handleBLENotifications);
       })
+      .then(_ => {
+        console.log('Notifications started');
+        charUARTRX.addEventListener('characteristicvaluechanged', handleBLENotifications);
+        
+        // send per 60 seconds
+        setInterval(() => {
+            if (latestBPMValue !== undefined) { // check if the latest BPM value is available
+                sendObservation(latestBPMValue); // send the observation to the FHIR server
+            }
+        }, 60000); // 10000 ms = 10 sec
+    })
       .catch(error => {
           console.error(error);
       });
   }
 
-  async function sendObservation() {    //send the observation to the FHIR server
+  async function sendObservation(hrvalue) {    //send the observation to the FHIR server
             const url = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
 
             // request body
@@ -159,7 +131,7 @@
                 },
                 "effectiveInstant": "2024-09-25T00:00:00Z",
                 "valueQuantity": {
-                    "value": 44,
+                    "value": hrvalue,
                     "unit": "beats/minute",
                     "system": "http://unitsofmeasure.org",
                     "code": "/min"
@@ -174,7 +146,7 @@
             };
 
             try {
-                // 发送POST请求
+                // send request
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
@@ -184,7 +156,7 @@
                     body: JSON.stringify(data)
                 });
 
-                // 解析响应
+                // analyze response
                 const result = await response.json();
                 document.getElementById('result').innerText = `Status Code: ${response.status}\nResponse: ${JSON.stringify(result, null, 2)}`;
             } catch (error) {
