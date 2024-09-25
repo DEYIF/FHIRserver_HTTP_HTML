@@ -19,6 +19,8 @@
 <!--for testing without BLE device-->
 
 </p>
+<div id="result" style="background-color: lightgray; padding: 10pt;"></div>
+
 
 <!--JavaScript part-->
 <script>
@@ -131,6 +133,65 @@
       });
   }
 
+  async function sendObservation() {    //send the observation to the FHIR server
+            const url = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
+
+            // request body
+            const data = {
+                "resourceType": "Observation",
+                "meta": {
+                    "profile": ["http://hl7.org/fhir/StructureDefinition/vitalsigns"]
+                },
+                "text": {
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b><a name=\"heart-rate\"> </a></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource Observation &quot;heart-rate&quot; </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"vitalsigns.html\">Vital Signs Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/5.1.0/CodeSystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: Heart rate <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#8867-4)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>effective</b>: 1999-07-02</p><p><b>value</b>: 44 beats/minute<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code /min = '/min')</span></p></div>"
+                },
+                "status": "final",
+                "code": {
+                    "coding": [{
+                        "system": "http://loinc.org",
+                        "code": "8867-4",
+                        "display": "Heart rate"
+                    }],
+                    "text": "Heart rate"
+                },
+                "subject": {
+                    "reference": "Patient/229"
+                },
+                "effectiveInstant": "2024-09-25T00:00:00Z",
+                "valueQuantity": {
+                    "value": 44,
+                    "unit": "beats/minute",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "/min"
+                },
+                "method": {
+                    "coding": [{
+                        "system": "http://loinc.org",
+                        "code": "8867-4",
+                        "display": "Pulse Oximetry"
+                    }]
+                }
+            };
+
+            try {
+                // 发送POST请求
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/fhir+json',
+                        'Content-Type': 'application/fhir+json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                // 解析响应
+                const result = await response.json();
+                document.getElementById('result').innerText = `Status Code: ${response.status}\nResponse: ${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('result').innerText = `Error: ${error.message}`;
+            }
+        }
+
   document.getElementById('startBtn').addEventListener('click', () => {
       startBluetooth();
   });
@@ -154,7 +215,8 @@
 
   // send Button
   document.getElementById("sendBtn").addEventListener("click", function() {
-      sendHRValue(); // 发送最新心率值
+      //sendHRValue(); // 发送最新心率值
+      sendObservation(); // 发送观察资源
   });
 
   document.getElementById('testBtn').addEventListener('click', () => {
