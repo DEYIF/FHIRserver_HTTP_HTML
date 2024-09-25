@@ -12,10 +12,10 @@
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="jqFhir.js"></script>
-
+    
     <script type="module">
 
-      // Create plot (graph element)
+      // Create plot (graph element) -> Define title, axis, position...
       const plotly_elem = document.getElementById('plot_area');
       const plotly_layout = {
         margin: {t: 50},
@@ -25,22 +25,20 @@
         xaxis: {title: 'Time'},
         yaxis: {title: 'Heart Rate (BPM)'},
       };
-      var plotly_data = [
+      var plotly_data = [ 
        { x: [], // Time on x-axis
         y: [], // BPM on y-axis
         type: 'scatter',
-        mode: 'lines+markers',
+        mode: 'lines+markers', // Want plot with dots and lines
         name: 'Heart Rate (BPM)',
-        connectgaps: false
+        connectgaps: false // Only connect adjacent points, don't skip gaps
        }
       ];
-
-       var client = jqFhir({ baseUrl: 'https://hapim.app.cloud.cbh.kth.se/fhir' });
 
       // Initialize plot (graph element)
       Plotly.newPlot(plotly_elem, plotly_data, plotly_layout);
        
-      // Create indicator element
+      // Create indicator element -> Define titles, position, axis, ...
       const indicator_elem = document.getElementById('indicator_area');
       var default_value = 0;  // Initial default value for BPM
       var previous_value = default_value;  // Show also previous value in the indicator 
@@ -61,8 +59,10 @@
       // Initialize indicator
       Plotly.newPlot(indicator_elem, indicator_data, indicator_layout);
       
-       // Obtain information from FHIR database            
-       const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
+      // Obtain information from FHIR database            
+      var client = jqFhir({ baseUrl: 'https://hapim.app.cloud.cbh.kth.se/fhir' }); // URL to the client
+      
+      const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation"; // URL to FHIR service
       const patientId = "1123"; // Add patient ID
       
       //let last_time = null; // Variable to track last time added
@@ -116,8 +116,7 @@
               // Update previous value
               previous_value = dataPoint.bpm;
             });
-
-          } else {
+          } else { // Other codes to avoid errors and breaking the programme
             console.error("Error retrieving data from FHIR:", response.statusText);
           }
         } catch (error) {
