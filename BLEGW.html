@@ -96,7 +96,7 @@
         // send per 60 seconds
         setInterval(() => {
             if (latestBPMValue !== undefined) { // check if the latest BPM value is available
-                const currentTime = new Date().toISOString(); //  UTC format time
+                const currentTime = new Date().toISOString(); // set the current time to the system time
                 sendObservation(latestBPMValue,currentTime); // send the observation to the FHIR server
             }
         }, 60000); // 10000 ms = 10 sec
@@ -143,7 +143,9 @@
                         "code": "8867-4",
                         "display": "Pulse Oximetry"
                     }]
-                }
+                },
+                "effectiveDateTime": time,
+                
             };
 
             try {
@@ -188,8 +190,10 @@
 
   // send Button
   document.getElementById("sendBtn").addEventListener("click", function() {
-      //sendHRValue(); // 发送最新心率值
-      sendObservation(); // 发送观察资源
+    if (latestBPMValue !== undefined) { // check if the latest BPM value is available
+        const currentTime = new Date().toISOString(); // set the current time to the system time
+        sendObservation(latestBPMValue,currentTime); // send the observation to the FHIR server
+    }
   });
 
   document.getElementById('testBtn').addEventListener('click', () => {
