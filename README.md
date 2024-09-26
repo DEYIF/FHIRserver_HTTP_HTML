@@ -14,6 +14,7 @@ To create your own patient and observation, follow these steps:
 To visit the website, use the root link + file's name. For example:
 
 - Input `https://deyif.github.io/FHIRserver_HTTP_HTML/BLEGW.html` to visit the BLEGW page.
+- Input `https://deyif.github.io/FHIRserver_HTTP_HTML/graph.html` to visit the plot page.
 - Our patient ID is `1123`, so input `https://deyif.github.io/FHIRserver_HTTP_HTML/patientview.html?id=1123` to check our patient's info.
 
 ---
