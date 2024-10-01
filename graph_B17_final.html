@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Today's heart rate</title>
+</head>
+<body>
+
+    <div id="plot_area" style="width:1000px;height:350px;"></div>
+    <div id="indicator_area" style="width:1000px;height:350px;"></div>
+
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="jqFhir.js"></script>
+    
+    <script type="module">
+      // Create plot (graph element) -> Define title, axis, position...
+      const plotly_elem = document.getElementById('plot_area');
+      const plotly_layout = {
+        margin: {t: 50},
+        title: 'Heart Rate (BPM)',
+        domain: { x: [0, 1], y: [0, 1] },
+        xaxis: {title: 'Date & Time'},
+        yaxis: {title: 'Heart Rate (BPM)'},
+      };
+      var plotly_data = [ 
+       { x: [], // Time on x-axis
+        y: [], // BPM on y-axis
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Heart Rate (BPM)',
+        connectgaps: false
+       }
+      ];
+      // Initialize plot (graph element)
+      Plotly.newPlot(plotly_elem, plotly_data, plotly_layout);
+      
+      // Create indicator element -> Define titles, position, axis, ...
+      const indicator_elem = document.getElementById('indicator_area');
+      var default_value = 0;
+      var current_value = default_value; 
+      var previous_value = default_value;
+      var indicator_data = [
+        {
+          type: "indicator",
+          mode: "number+delta",
+          value: current_value,
+          delta: { position: "top", reference: previous_value },
+          title: { text: "Heart Rate (BPM)" },
+          domain: { x: [0, 1], y: [0, 1] }
+        }
+      ];
+      var indicator_layout = { 
+        margin: { t: 50, r: 50, l: 50, b: 50 }
+      };
+      // Initialize indicator
+      Plotly.newPlot(indicator_elem, indicator_data, indicator_layout);
+      
+      // Obtain information from FHIR database
+      var client = jqFhir({ baseUrl: 'https://hapim.app.cloud.cbh.kth.se/fhir' });
+      const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation";
+      const patientId = "1123";
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const currentTime = today.toISOString();
+      const currentTime_string = `gt${currentTime}`;
+      const HeartRateCode = "8867-4";
+      let flag = false;
+      let heartRateData = [];
+
+      function fetchHeartRateData() {
+        console.log("Fetching heart rate data...");
+
+        // Use query to get the data from the FHIR database
+        let query = `${fhirEndpoint}?patient=${patientId}&date=${currentTime_string}&code=${HeartRateCode}&_count=2000000`;
+
+        fetch(query, {
+          headers: {
+            "Accept": "application/fhir+json"
+          }
+        })
+        .then(response => {
+          if (response.ok) {
+            return response.json();
+          } else {
+            console.error("Error retrieving data from FHIR:", response.statusText);
+          }
+        })
+        .then(fhirData => {
+          const observations = fhirData ? fhirData.entry || [] : [];
+
+          // Loop through the observations and extract the heart rate data
+          observations.forEach((entry) => {
+            const observation = entry.resource;
+            const BPM_value = observation.valueQuantity.value;
+            const current_time = new Date(observation.effectiveInstant).getTime();
+            const observation_id = observation.id;
+
+            if (BPM_value !== undefined && current_time !== undefined) {
+              heartRateData.push({ id: observation_id, time: current_time, bpm: BPM_value });
+              console.log("Heart Rate (BPM):", BPM_value, "at", new Date(current_time).toLocaleString());
+            }
+          });
+
+          // Sort the data by time
+          heartRateData.sort((a, b) => a.time - b.time);
+
+          if (!flag) {
+            // Update the plotly data with the new data
+            heartRateData.forEach(dataPoint => {
+              const timeFormatted = new Date(dataPoint.time);
+              plotly_data[0].x.push(timeFormatted);
+              plotly_data[0].y.push(dataPoint.bpm);
+            });
+          }
+
+          if (heartRateData.length > 0) {
+            const lastDataPoint = heartRateData[heartRateData.length - 1];
+            current_value = lastDataPoint.bpm;
+            today = lastDataPoint.time;
+            console.log(today);
+
+            previous_value = 0;
+            if (heartRateData.length > 1) {
+              previous_value = heartRateData[heartRateData.length - 2].bpm;
+            }
+            indicator_data[0].value = current_value;
+            indicator_data[0].delta.reference = previous_value;
+          }
+
+          if (flag) {
+            plotly_data[0].x.push(new Date(today));
+            plotly_data[0].y.push(current_value);
+          }
+
+          flag = true;
+
+          // Update the heart rate graph with the new data
+          Plotly.update(plotly_elem, plotly_data, plotly_layout);
+          Plotly.react(indicator_elem, indicator_data, indicator_layout);
+          console.log("Updated plot data", plotly_data);
+        })
+        .catch(error => {
+          console.error("Error:", error);
+        });
+      }
+
+      fetchHeartRateData(); // Initial fetch of heart rate data
+      setInterval(fetchHeartRateData, 10000); // Fetch data every 10 seconds
+    </script>
+</body>
+</html>
