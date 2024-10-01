@@ -60,7 +60,12 @@
       var client = jqFhir({ baseUrl: 'https://hapim.app.cloud.cbh.kth.se/fhir' }); // URL to the client
       const fhirEndpoint = "https://hapim.app.cloud.cbh.kth.se/fhir/Observation"; // URL to FHIR service
       const patientId = "1123"; // Add patient ID
-      
+      const today = new Date();  // get the current date
+      today.setHours(0, 0, 0, 0);  // Set the time to 0:00:00 (midnight)
+      const currentTime = today.toISOString();  // Use ISO string for date comparison in query
+      const currentTime_string = `ge${currentTime}`;  // Obtain time string for query
+      const HeartRateCode = "8867-4";
+
       let storedHeartRateIds = new Set();  // use a set to store the heart rate data, to avoid duplicates
       let heartRateData = [];  // a array for storing the heart rate data
 
@@ -68,7 +73,7 @@
         console.log("Fetching heart rate data...");
         try {
            // use query to get the data from the FHIR database
-          let query = `${fhirEndpoint}?patient=${patientId}&_count=2000000`;
+          let query = `${fhirEndpoint}?patient=${patientId}&date=${currentTime_string}&code=${HeartRateCode}&_count=2000000`;
 
           const response = await fetch(query, {
             headers: {
@@ -88,13 +93,19 @@
               const current_time = new Date(observation.effectiveInstant).getTime(); // Extract time
               const observation_id = observation.id;  // Extract observation id
 
+              if (BPM_value!==undefined && current_time!==undefined) {
+                  heartRateData.push({ id: observation_id, time: current_time, bpm: BPM_value });
+                  // print the heart rate and time
+                  console.log("Heart Rate (BPM):", BPM_value, "at", new Date(current_time).toLocaleString());
+                }
+              /*
               if (!storedHeartRateIds.has(observation_id)) {
                 if (BPM_value!==undefined && current_time!==undefined) {
                   heartRateData.push({ id: observation_id, time: current_time, bpm: BPM_value });
                   // print the heart rate and time
                   console.log("Heart Rate (BPM):", BPM_value, "at", new Date(current_time).toLocaleString());
                 }
-              }
+              } */
             });
 
             // sort the data by time
@@ -127,9 +138,10 @@
             });
 
             // Update the heart rate graph with the new data
-            Plotly.react(plotly_elem, plotly_data, plotly_layout);
+            Plotly.update(plotly_elem, plotly_data, plotly_layout);
             Plotly.react(indicator_elem, indicator_data, indicator_layout);
             console.log("SSS", plotly_data)
+            console.log(plotly_data[0])
 
           } else { // Other codes to avoid errors and breaking the programme
             console.error("Error retrieving data from FHIR:", response.statusText);
